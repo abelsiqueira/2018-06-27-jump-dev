@@ -1,3 +1,17 @@
 .ipynb_checkpoints
 *.html
 tmp.gif
+main-blx.bib
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.nav
+*.out
+*.pdf
+*.run.xml
+*.snm
+*.toc
+*.vrb
