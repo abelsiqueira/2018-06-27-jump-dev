@@ -9,8 +9,8 @@
 \myframetop{
   \ctr{Julia Smooth Optimizers}
 
-  \begin{minipage}{0.44\textwidth}
-    \includegraphics[height=0.75\textheight]{jsologo.png}
+  \begin{minipage}{0.43\textwidth}
+    \includegraphics[width=1.0\textwidth]{jsologo.png}
   \end{minipage}
   \begin{minipage}{0.55\textwidth}
     \begin{itemize}
@@ -39,7 +39,8 @@
     \item Defines nonlinear programming models and unified API to access them;
     \item Some models provide sparse derivatives;
     \item Some models provide efficient matrix-free products (i.e. no explicit matrix
-      used).
+      used);
+    \item Creating a new model type should be easy.
   \end{itemize}
 \end{frame}
 
@@ -49,7 +50,7 @@
   # Short
   adnlp = ADNLPModel(x -> (x[1] - 1)^2 + 100 * (x[2] - x[1]^2)^2, [-1.2; 1.0])
 
-  # ROSENBR from the CUTEst list of problem
+  # ROSENBR from the CUTEst list of problem. Also uses CUTEst.jl
   ctnlp = CUTEstModel("ROSENBR")
 
   # using JuMP -> sparse Hessian
@@ -64,7 +65,7 @@
 \begin{frame}[fragile,t]
   \ctr{Unified API}
 
-\begin{minipage}{0.52\textwidth}
+\begin{minipage}{0.51\textwidth}
 \begin{lstlisting}
 for (name, nlp) in [("Autodiff", adnlp),
                     ("CUTEst", ctnlp),
@@ -131,36 +132,52 @@ function newton(nlp :: AbstractNLPModel)
     grad!(nlp, x, gx)
   end
 
-  return x, fx, gx
+  return x, fx, gx # Unified output also available in other packages
 end
+
+for nlp in [adnlp; ctnlp; mpnlp]
+  x, fx, gx = newton(nlp)
+  # ...
 \end{lstlisting}
 \end{frame}
 
 \begin{frame}[fragile,t]
   \ctr{Unified API}
-  \begin{align*}
-    \min & \quad f(x) \qquad
+  $$
+    \min \quad f(x) \qquad
     \mbox{s. to} \qquad
     \begin{array}{l}
       c_L \leq c(x) \leq c_U, \quad
       \ell \leq x \leq u
     \end{array}
-  \end{align*}
+    $$
   \begin{tabular}{|l|l|} \hline
     $f(x)$ &
       \verb+obj+ \\ \hline
     $\nabla f(x)$ &
       \verb+grad, grad!+ \\ \hline
+\ifx\undefined\widescreen
+    $\nabla^2 f(x)$ &
+      \verb+hess, hess_op, hess_op!, hess_coord, hprod+, \\
+      & \verb+hprod!+ \\ \hline
+\else
     $\nabla^2 f(x)$ &
       \verb+hess, hess_op, hess_op!, hess_coord, hprod, hprod!+ \\ \hline
+\fi
     $f(x), \nabla f(x)$ &
       \verb+objgrad, objgrad!+ \\ \hline
     $c(x)$ &
       \verb+cons, cons!+ \\ \hline
     $f(x), c(x)$ &
       \verb+objcons, objcons!+ \\ \hline
+\ifx\undefined\widescreen
+    $J(x) = \nabla c(x)$ &
+      \verb+jac, jac_op, jac_op!, jac_coord, jprod, jprod!+, \\
+      & \verb+jtprod, jtprod!+ \\ \hline
+\else
     $J(x) = \nabla c(x)$ &
       \verb+jac, jac_op, jac_op!, jac_coord, jprod, jprod!, jtprod, jtprod!+ \\ \hline
+\fi
     $\nabla_{xx}^2 L(x,y)$ &
       \verb+hess, hess_op, hess_coord, hprod, hprod!+ \\ \hline
   \end{tabular}
@@ -318,8 +335,8 @@ T = LinearOperator{Float64}(nlp.meta.ncon, nlp.meta.nvar,
     \item \verb+jac_op(nlp, x)+ returns a \verb+LinearOperator+ with \verb+jprod+ and
       \verb+jtprod+;
     \item \verb+hess_op(nlp, x)+ is similar for \verb+hprod+;
-    \item \verb+LBFGSOperator+ and \verb+InverseLBFGSOperator+ create LBFGS operators
-      that can be updated with \verb+push!(B, s, y)+;
+    %\item \verb+LBFGSOperator+ and \verb+InverseLBFGSOperator+ create LBFGS operators
+      %that can be updated with \verb+push!(B, s, y)+;
   \end{itemize}
 \end{frame}
 
@@ -357,15 +374,26 @@ y, cgls_stats = cgls(Jx', gx)
   \end{minipage}
   \begin{minipage}{0.49\textwidth}
 \begin{lstlisting}
-# B, d, radius
+# Given B, g, radius
 d, cg_stats = cg(B, -g, radius=radius)
 \end{lstlisting}
   \end{minipage}
+\ifx\undefined\widescreen
+\begin{center}
+  \foreach \x in {1, 2, 3} {
+    \only<\x>{
+      \includegraphics[width=0.5\textheight]{src/krylov\x.png}
+    }
+
+  }
+\end{center}
+\else
 \begin{center}
   \includegraphics[width=0.3\textwidth]{src/krylov1.png}
   \includegraphics[width=0.3\textwidth]{src/krylov2.png}
   \includegraphics[width=0.3\textwidth]{src/krylov3.png}
 \end{center}
+\fi
 \end{frame}
 
 \begin{frame}[fragile,t]
@@ -380,7 +408,9 @@ push!(B, s, y)
 push!(H, s, y)
 
 v = ones(n)
-cg(B, v)[1] - H * v
+x, _ = cg(B, v)
+Hv = H * v
+x - Hv # Almost zero
 \end{lstlisting}
 \end{frame}
 
@@ -396,7 +426,7 @@ cg(B, v)[1] - H * v
     \item Tools for benchmarking (together with BenchmarkProfiles);
   \end{itemize}
 \begin{lstlisting}
-pnames = CUTEst.select(max_var=10_000, contype=:unc)
+pnames = CUTEst.select(min_var=100, max_var=10_000, contype=:unc)
 problems = (CUTEstModel(p) for p in pnames)
 solvers = Dict{Symbol,Function}(:lbfgs => lbfgs, :trunk => trunk)
 bmark_args = Dict(:max_f => 10_000, :max_time => 30.0)
@@ -436,7 +466,7 @@ end
   \ctr{Optimize vs. Optim}
 \begin{lstlisting}
 solvers = Dict{Symbol,Function}(:Optim => optim_method, :Optimize => lbfgs)
-pnames = sort(CUTEst.select(max_var=1000, contype=:unc))
+pnames = sort(CUTEst.select(min_var=100, max_var=10_000, contype=:unc))
 bmark_args = Dict(:atol => 1e-8, rtol => 0.0, :max_f => 10_000, :max_time => 30.0)
 
 problems = (CUTEstModel(p) for p in pnames)
@@ -479,6 +509,7 @@ png(p, "vs-optim-time")
 \myframe{
   \ctr{Future Work}
   \begin{itemize}
+    \item NLSCON: Constrained Nonlinear Least Squares Solver
     \item Code updates: Julia 0.7/1.0, MOI interface, and type stability;
     \item General constraints solver and stable version of Optimize;
     \item Parameter optimization;

@@ -28,9 +28,24 @@ function newton(nlp :: AbstractNLPModel)
 end
 
 function runcutest()
-  nlp = CUTEstModel("ROSENBR")
-  x, fx, gx = newton(nlp)
-  println("x = $x")
-  println("fx = $fx")
-  println("gx = $gx")
+  # Short
+  adnlp = ADNLPModel(x -> (x[1] - 1)^2 + 100 * (x[2] - x[1]^2)^2, [-1.2; 1.0])
+
+  # ROSENBR from the CUTEst list of problem. Also uses CUTEst.jl
+  ctnlp = CUTEstModel("ROSENBR")
+
+  # using JuMP -> sparse Hessian
+  m = Model()
+  @variable(m, x[1:2])
+  setvalue(x, [-1.2; 1.0])
+  @NLobjective(m, Min, (x[1] - 1)^2 + 100 * (x[2] - x[1]^2)^2)
+  mpnlp = MathProgNLPModel(m);
+
+  for nlp in [adnlp; ctnlp; mpnlp]
+    x, fx, gx = newton(nlp)
+    println("x = $x")
+    println("fx = $fx")
+    println("gx = $gx")
+    finalize(nlp)
+  end
 end
